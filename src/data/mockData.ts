@@ -1,0 +1,168 @@
+import { Meeting, Room, Material, Config } from '@/types';
+
+const now = new Date();
+const formatTime = (date: Date) => date.toISOString();
+
+export const mockMeetings: Meeting[] = [
+  {
+    id: 'm1',
+    title: '产品需求评审',
+    level: 'important',
+    startTime: formatTime(new Date(now.getTime() - 30 * 60 * 1000)),
+    endTime: formatTime(new Date(now.getTime() + 90 * 60 * 1000)),
+    roomId: 'r1',
+    participants: ['张三', '李四', '王五'],
+    status: 'ongoing',
+  },
+  {
+    id: 'm2',
+    title: '技术分享会',
+    level: 'normal',
+    startTime: formatTime(new Date(now.getTime() - 60 * 60 * 1000)),
+    endTime: formatTime(new Date(now.getTime() + 60 * 60 * 1000)),
+    roomId: 'r2',
+    participants: ['赵六', '钱七'],
+    status: 'ongoing',
+  },
+  {
+    id: 'm3',
+    title: '部门周会',
+    level: 'normal',
+    startTime: formatTime(new Date(now.getTime() + 2 * 60 * 60 * 1000)),
+    endTime: formatTime(new Date(now.getTime() + 3 * 60 * 60 * 1000)),
+    roomId: 'r3',
+    participants: ['孙八', '周九'],
+    status: 'upcoming',
+  },
+  {
+    id: 'm4',
+    title: '紧急会议',
+    level: 'important',
+    startTime: formatTime(new Date(now.getTime() - 15 * 60 * 1000)),
+    endTime: formatTime(new Date(now.getTime() + 45 * 60 * 1000)),
+    roomId: 'r4',
+    participants: ['吴十', '郑十一'],
+    status: 'ongoing',
+  },
+];
+
+export const mockRooms: Room[] = [
+  {
+    id: 'r1',
+    name: '第一会议室',
+    capacity: 10,
+    status: 'occupied',
+    currentMeeting: mockMeetings[0],
+    hasPeople: true,
+    energySaving: false,
+    devices: [
+      { id: 'd1-1', type: 'light', name: '主灯', status: 'online', value: 80, isOn: true },
+      { id: 'd1-2', type: 'aircon', name: '空调', status: 'online', value: 24, isOn: true },
+      { id: 'd1-3', type: 'curtain', name: '窗帘', status: 'online', value: 50, isOn: true },
+      { id: 'd1-4', type: 'projector', name: '投影仪', status: 'online', value: 100, isOn: true },
+      { id: 'd1-5', type: 'tv', name: '电视', status: 'online', value: 100, isOn: false },
+    ],
+  },
+  {
+    id: 'r2',
+    name: '第二会议室',
+    capacity: 8,
+    status: 'occupied',
+    currentMeeting: mockMeetings[1],
+    hasPeople: false,
+    energySaving: false,
+    devices: [
+      { id: 'd2-1', type: 'light', name: '主灯', status: 'online', value: 60, isOn: true },
+      { id: 'd2-2', type: 'aircon', name: '空调', status: 'online', value: 25, isOn: true },
+      { id: 'd2-3', type: 'curtain', name: '窗帘', status: 'offline', value: 0, isOn: false },
+      { id: 'd2-4', type: 'projector', name: '投影仪', status: 'online', value: 80, isOn: true },
+      { id: 'd2-5', type: 'tv', name: '电视', status: 'online', value: 100, isOn: false },
+    ],
+  },
+  {
+    id: 'r3',
+    name: '第三会议室',
+    capacity: 6,
+    status: 'available',
+    currentMeeting: null,
+    hasPeople: false,
+    energySaving: false,
+    devices: [
+      { id: 'd3-1', type: 'light', name: '主灯', status: 'online', value: 0, isOn: false },
+      { id: 'd3-2', type: 'aircon', name: '空调', status: 'online', value: 0, isOn: false },
+      { id: 'd3-3', type: 'curtain', name: '窗帘', status: 'online', value: 0, isOn: false },
+      { id: 'd3-4', type: 'projector', name: '投影仪', status: 'online', value: 0, isOn: false },
+      { id: 'd3-5', type: 'tv', name: '电视', status: 'error', value: 0, isOn: false },
+    ],
+  },
+  {
+    id: 'r4',
+    name: '第四会议室',
+    capacity: 12,
+    status: 'occupied',
+    currentMeeting: mockMeetings[3],
+    hasPeople: true,
+    energySaving: false,
+    devices: [
+      { id: 'd4-1', type: 'light', name: '主灯', status: 'online', value: 90, isOn: true },
+      { id: 'd4-2', type: 'aircon', name: '空调', status: 'online', value: 23, isOn: true },
+      { id: 'd4-3', type: 'curtain', name: '窗帘', status: 'online', value: 30, isOn: true },
+      { id: 'd4-4', type: 'projector', name: '投影仪', status: 'online', value: 100, isOn: true },
+      { id: 'd4-5', type: 'tv', name: '电视', status: 'online', value: 100, isOn: true },
+    ],
+  },
+  {
+    id: 'r5',
+    name: '第五会议室',
+    capacity: 4,
+    status: 'available',
+    currentMeeting: null,
+    hasPeople: false,
+    energySaving: false,
+    devices: [
+      { id: 'd5-1', type: 'light', name: '主灯', status: 'online', value: 0, isOn: false },
+      { id: 'd5-2', type: 'aircon', name: '空调', status: 'online', value: 0, isOn: false },
+      { id: 'd5-3', type: 'curtain', name: '窗帘', status: 'online', value: 0, isOn: false },
+      { id: 'd5-4', type: 'projector', name: '投影仪', status: 'online', value: 0, isOn: false },
+      { id: 'd5-5', type: 'tv', name: '电视', status: 'online', value: 0, isOn: false },
+    ],
+  },
+  {
+    id: 'r6',
+    name: '第六会议室',
+    capacity: 15,
+    status: 'available',
+    currentMeeting: null,
+    hasPeople: false,
+    energySaving: false,
+    devices: [
+      { id: 'd6-1', type: 'light', name: '主灯', status: 'online', value: 0, isOn: false },
+      { id: 'd6-2', type: 'aircon', name: '空调', status: 'online', value: 0, isOn: false },
+      { id: 'd6-3', type: 'curtain', name: '窗帘', status: 'online', value: 0, isOn: false },
+      { id: 'd6-4', type: 'projector', name: '投影仪', status: 'online', value: 0, isOn: false },
+      { id: 'd6-5', type: 'tv', name: '电视', status: 'online', value: 0, isOn: false },
+    ],
+  },
+];
+
+export const mockMaterials: Material[] = [
+  { id: 'mat1', category: '咖啡', name: '美式咖啡', price: 25, available: true },
+  { id: 'mat2', category: '咖啡', name: '拿铁', price: 30, available: true },
+  { id: 'mat3', category: '咖啡', name: '卡布奇诺', price: 32, available: true },
+  { id: 'mat4', category: '咖啡', name: '摩卡', price: 35, available: false },
+  { id: 'mat5', category: '茶', name: '龙井', price: 20, available: true },
+  { id: 'mat6', category: '茶', name: '铁观音', price: 22, available: true },
+  { id: 'mat7', category: '茶', name: '普洱', price: 25, available: true },
+  { id: 'mat8', category: '小食', name: '曲奇饼干', price: 15, available: true },
+  { id: 'mat9', category: '小食', name: '坚果拼盘', price: 28, available: true },
+  { id: 'mat10', category: '小食', name: '水果拼盘', price: 35, available: true },
+  { id: 'mat11', category: '饮料', name: '矿泉水', price: 5, available: true },
+  { id: 'mat12', category: '饮料', name: '可乐', price: 8, available: true },
+  { id: 'mat13', category: '饮料', name: '果汁', price: 12, available: true },
+];
+
+export const defaultConfig: Config = {
+  reminderTime: 15,
+  refreshInterval: 30,
+  energySavingTimeout: 10,
+};
