@@ -9,10 +9,11 @@ type Page = 'dashboard' | 'room-detail' | 'admin';
 
 const AppContent = () => {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
-  const { state } = useMeeting();
+  const { state, setCurrentRoom } = useMeeting();
   const { currentRoomId } = state;
 
-  const handleRoomClick = (_roomId: string) => {
+  const handleRoomClick = (roomId: string) => {
+    setCurrentRoom(roomId);
     setCurrentPage('room-detail');
   };
 
