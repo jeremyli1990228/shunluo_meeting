@@ -14,6 +14,13 @@ import {
   ChevronDown,
   ChevronUp,
   PowerOff,
+  Package,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Truck,
+  X,
+  ChevronRight,
 } from 'lucide-react';
 import { MeetingCard } from '@/components/MeetingCard';
 import { MaterialOrder } from '@/components/MaterialOrder';
@@ -44,10 +51,12 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
     turnOffAllDevices,
     turnOnAllDevices,
   } = useMeeting();
-  const { rooms, materials } = state;
+  const { rooms, materials, orders } = state;
   const [showMaterialOrder, setShowMaterialOrder] = useState(false);
   const [deviceCollapsed, setDeviceCollapsed] = useState(false);
   const [sceneCollapsed, setSceneCollapsed] = useState(false);
+  const [orderCollapsed, setOrderCollapsed] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<typeof orders[0] | null>(null);
 
   const room = rooms.find(r => r.id === roomId);
   if (!room) return null;
@@ -252,6 +261,98 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
             )}
           </div>
 
+          {/* 订单状态 */}
+          <div className="bg-gray-50 rounded-xl overflow-hidden">
+            <button
+              onClick={() => setOrderCollapsed(!orderCollapsed)}
+              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-gray-500" />
+                <h3 className="text-sm font-semibold text-gray-700">我的订单</h3>
+                {orders.filter(o => o.roomId === roomId).length > 0 && (
+                  <span className="px-1.5 py-0.5 text-[10px] bg-orange-100 text-orange-600 rounded-full font-medium">
+                    {orders.filter(o => o.roomId === roomId).length}
+                  </span>
+                )}
+              </div>
+              {orderCollapsed ? (
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-gray-400" />
+              )}
+            </button>
+            {!orderCollapsed && (
+              <div className="px-4 pb-4 space-y-2">
+                {orders
+                  .filter(o => o.roomId === roomId)
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .map(order => {
+                    const getStatusInfo = (status: string) => {
+                      switch (status) {
+                        case 'pending':
+                          return { icon: AlertCircle, color: 'text-orange-500', bg: 'bg-orange-50', label: '待处理', steps: ['已下单', '准备中', '配送中', '已送达'], current: 0 };
+                        case 'preparing':
+                          return { icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50', label: '准备中', steps: ['已下单', '准备中', '配送中', '已送达'], current: 1 };
+                        case 'delivered':
+                          return { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-50', label: '已送达', steps: ['已下单', '准备中', '配送中', '已送达'], current: 3 };
+                        case 'cancelled':
+                          return { icon: X, color: 'text-gray-400', bg: 'bg-gray-50', label: '已取消', steps: ['已下单', '已取消'], current: 1 };
+                        default:
+                          return { icon: AlertCircle, color: 'text-gray-400', bg: 'bg-gray-50', label: '未知', steps: [], current: 0 };
+                      }
+                    };
+                    const statusInfo = getStatusInfo(order.status);
+                    const StatusIcon = statusInfo.icon;
+                    return (
+                      <div
+                        key={order.id}
+                        onClick={() => setSelectedOrder(order)}
+                        className="bg-white p-3 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors border border-gray-100"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-8 h-8 ${statusInfo.bg} rounded-lg flex items-center justify-center`}>
+                              <StatusIcon className={`w-4 h-4 ${statusInfo.color}`} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">{statusInfo.label}</p>
+                              <p className="text-xs text-gray-400">
+                                {new Date(order.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-300" />
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500">
+                            {order.items.length}项 · {order.items.reduce((sum, item) => sum + item.quantity, 0)}份
+                          </span>
+                        </div>
+                        <div className="mt-3 flex items-center gap-1">
+              {statusInfo.steps.map((_, index) => (
+                <div key={index} className="flex items-center">
+                  <div className={`w-2 h-2 rounded-full ${index <= statusInfo.current ? 'bg-orange-500' : 'bg-gray-200'}`} />
+                  {index < statusInfo.steps.length - 1 && (
+                    <div className={`w-4 h-0.5 ${index < statusInfo.current ? 'bg-orange-500' : 'bg-gray-200'}`} />
+                  )}
+                </div>
+              ))}
+            </div>
+                      </div>
+                    );
+                  })}
+                {orders.filter(o => o.roomId === roomId).length === 0 && (
+                  <div className="text-center py-6 text-gray-400">
+                    <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">暂无订单</p>
+                    <p className="text-xs">点击下方按钮点餐</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* 会务物资点餐 */}
           <button
             onClick={() => setShowMaterialOrder(true)}
@@ -271,6 +372,145 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
           roomName={room.name}
           onClose={() => setShowMaterialOrder(false)}
         />
+      )}
+
+      {/* 订单详情弹窗 */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Package className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">订单详情</h3>
+                    <p className="text-white/80 text-sm">
+                      订单号：{selectedOrder.id.slice(-8).toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedOrder(null)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                <Truck className="w-5 h-5 text-orange-500" />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">配送至</p>
+                  <p className="text-xs text-gray-500">{selectedOrder.roomName}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">点餐内容</h4>
+                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                  {selectedOrder.items.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{item.name}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 text-xs font-bold">
+                          {item.quantity}
+                        </span>
+                        <span className="text-sm text-gray-500">份</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">配送进度</h4>
+                <div className="space-y-3">
+                  {(() => {
+                    switch (selectedOrder.status) {
+                      case 'pending':
+                        return [
+                          { step: '已下单', time: selectedOrder.createdAt, done: true, active: true },
+                          { step: '准备中', time: '', done: false, active: false },
+                          { step: '配送中', time: '', done: false, active: false },
+                          { step: '已送达', time: '', done: false, active: false },
+                        ];
+                      case 'preparing':
+                        return [
+                          { step: '已下单', time: selectedOrder.createdAt, done: true, active: false },
+                          { step: '准备中', time: selectedOrder.updatedAt, done: true, active: true },
+                          { step: '配送中', time: '', done: false, active: false },
+                          { step: '已送达', time: '', done: false, active: false },
+                        ];
+                      case 'delivered':
+                        return [
+                          { step: '已下单', time: selectedOrder.createdAt, done: true, active: false },
+                          { step: '准备中', time: '', done: true, active: false },
+                          { step: '配送中', time: '', done: true, active: false },
+                          { step: '已送达', time: selectedOrder.updatedAt, done: true, active: true },
+                        ];
+                      case 'cancelled':
+                        return [
+                          { step: '已下单', time: selectedOrder.createdAt, done: true, active: false },
+                          { step: '已取消', time: selectedOrder.updatedAt, done: true, active: true },
+                        ];
+                      default:
+                        return [];
+                    }
+                  })().map((progress, index, arr) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                          progress.done ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-400'
+                        } ${progress.active ? 'ring-2 ring-orange-200' : ''}`}>
+                          {progress.done ? (
+                            progress.active ? <Clock className="w-3 h-3" /> : <CheckCircle className="w-3 h-3" />
+                          ) : (
+                            <span className="text-xs">{index + 1}</span>
+                          )}
+                        </div>
+                        {index < arr.length - 1 && (
+                          <div className={`w-0.5 h-6 ${progress.done ? 'bg-orange-500' : 'bg-gray-200'}`} />
+                        )}
+                      </div>
+                      <div className="flex-1 pb-3">
+                        <p className={`text-sm font-medium ${progress.active ? 'text-orange-600' : progress.done ? 'text-gray-800' : 'text-gray-400'}`}>
+                          {progress.step}
+                        </p>
+                        {progress.time && (
+                          <p className="text-xs text-gray-400">
+                            {new Date(progress.time).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                <div>
+                  <p className="text-xs text-gray-500">下单时间</p>
+                  <p className="text-sm text-gray-700">
+                    {new Date(selectedOrder.createdAt).toLocaleString('zh-CN')}
+                  </p>
+                </div>
+                <div className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                  selectedOrder.status === 'pending' ? 'bg-orange-100 text-orange-600' :
+                  selectedOrder.status === 'preparing' ? 'bg-blue-100 text-blue-600' :
+                  selectedOrder.status === 'delivered' ? 'bg-green-100 text-green-600' :
+                  'bg-gray-100 text-gray-500'
+                }`}>
+                  {selectedOrder.status === 'pending' ? '待处理' :
+                   selectedOrder.status === 'preparing' ? '准备中' :
+                   selectedOrder.status === 'delivered' ? '已送达' : '已取消'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
