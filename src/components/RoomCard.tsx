@@ -1,4 +1,4 @@
-import { Building2, Users, Zap, WifiOff, MapPin, ShoppingBag } from 'lucide-react';
+import { Building2, Users, Zap, WifiOff, MapPin, ShoppingBag, Phone } from 'lucide-react';
 import { Room } from '@/types';
 import { formatTime, getMinutesRemaining } from '@/utils/timeUtils';
 
@@ -6,9 +6,10 @@ interface RoomCardProps {
   room: Room;
   onClick: () => void;
   orderCount?: number;
+  callCount?: number;
 }
 
-export const RoomCard = ({ room, onClick, orderCount = 0 }: RoomCardProps) => {
+export const RoomCard = ({ room, onClick, orderCount = 0, callCount = 0 }: RoomCardProps) => {
   const isOccupied = room.status === 'occupied';
   const isImportant = room.currentMeeting?.level === 'important';
   const hasError = room.devices.some(d => d.status === 'error');
@@ -32,15 +33,23 @@ export const RoomCard = ({ room, onClick, orderCount = 0 }: RoomCardProps) => {
         </div>
       )}
 
+      {/* 呼叫标记 */}
+      {callCount > 0 && (
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold animate-pulse">
+          <Phone className="w-3 h-3" />
+          {callCount}
+        </div>
+      )}
+
       {/* 错误状态图标 */}
-      {hasError && orderCount === 0 && (
+      {hasError && orderCount === 0 && callCount === 0 && (
         <div className="absolute top-3 right-3 z-10">
           <WifiOff className={`w-5 h-5 ${isOccupied ? 'text-red-300' : 'text-red-500'}`} />
         </div>
       )}
 
       {/* 节能模式图标 */}
-      {room.energySaving && !hasError && orderCount === 0 && (
+      {room.energySaving && !hasError && orderCount === 0 && callCount === 0 && (
         <div className="absolute top-3 right-3 z-10">
           <Zap className={`w-5 h-5 ${isOccupied ? 'text-yellow-300' : 'text-yellow-500'}`} />
         </div>

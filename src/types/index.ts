@@ -6,6 +6,8 @@ export type DeviceStatus = 'online' | 'offline' | 'error';
 export type ModalType = 'reminder' | 'confirm' | 'success' | 'order';
 export type DeviceRole = 'inside' | 'entrance';
 export type OrderStatus = 'pending' | 'preparing' | 'delivered' | 'cancelled';
+export type CallStatus = 'pending' | 'handling' | 'completed' | 'cancelled';
+export type CallType = 'cleaning' | 'maintenance' | 'other';
 
 export interface MeetingAttachment {
   id: string;
@@ -89,6 +91,17 @@ export interface MaterialOrder {
   items: OrderItem[];
   totalPrice: number;
   status: OrderStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceCall {
+  id: string;
+  roomId: string;
+  roomName: string;
+  type: CallType;
+  note?: string;
+  status: CallStatus;
   createdAt: string;
   updatedAt: string;
 }

@@ -22,11 +22,15 @@ import {
   X,
   ChevronRight,
   Phone,
+  SprayCan,
+  Wrench,
+  HelpCircle,
 } from 'lucide-react';
 import { MeetingCard } from '@/components/MeetingCard';
 import { MaterialOrder } from '@/components/MaterialOrder';
 import { useMeeting } from '@/context/MeetingContext';
-import { DeviceType } from '@/types';
+import { DeviceType, CallType } from '@/types';
+import { loadCalls, saveCalls, generateCallId } from '@/utils/callStorage';
 
 interface RoomDetailProps {
   roomId: string;
@@ -59,7 +63,9 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
   const [orderCollapsed, setOrderCollapsed] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<typeof orders[0] | null>(null);
   const [showCallModal, setShowCallModal] = useState(false);
-  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'answered' | 'completed'>('idle');
+  const [callType, setCallType] = useState<CallType>('cleaning');
+  const [callNote, setCallNote] = useState('');
+  const [callSuccess, setCallSuccess] = useState(false);
 
   const room = rooms.find(r => r.id === roomId);
   if (!room) return null;
@@ -528,18 +534,70 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
       {/* 呼叫服务弹窗 */}
       {showCallModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-            {callStatus === 'idle' && (
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            {!callSuccess && (
               <>
-                <div className="bg-gradient-to-r from-red-500 to-red-600 p-5 text-center">
-                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Phone className="w-8 h-8 text-white" />
+                <div className="bg-gradient-to-r from-red-500 to-red-600 p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                        <Phone className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white">呼叫服务</h3>
+                        <p className="text-white/80 text-sm">{room.name}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setShowCallModal(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                      <X className="w-5 h-5 text-white" />
+                    </button>
                   </div>
-                  <h3 className="text-xl font-bold text-white">呼叫服务</h3>
-                  <p className="text-white/80 text-sm mt-1">{room.name}</p>
                 </div>
-                <div className="p-6 text-center">
-                  <p className="text-gray-600 mb-6">是否确认呼叫会议室外部服务人员？</p>
+
+                <div className="p-5 space-y-5">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">选择服务类型</h4>
+                    <div className="space-y-2">
+                      {[
+                        { key: 'cleaning', label: '清洁打扫', desc: '需要保洁人员打扫会议室', icon: SprayCan, color: 'bg-blue-50 text-blue-600' },
+                        { key: 'maintenance', label: '设备维护', desc: '设备故障需要维修', icon: Wrench, color: 'bg-purple-50 text-purple-600' },
+                        { key: 'other', label: '其他事务', desc: '其他需要协助的事项', icon: HelpCircle, color: 'bg-orange-50 text-orange-600' },
+                      ].map(type => {
+                        const Icon = type.icon;
+                        const isSelected = callType === type.key;
+                        return (
+                          <button
+                            key={type.key}
+                            onClick={() => setCallType(type.key as CallType)}
+                            className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-center gap-3 ${
+                              isSelected ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                            }`}
+                          >
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-red-500 text-white' : type.color}`}>
+                              <Icon className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">{type.label}</p>
+                              <p className="text-xs text-gray-500">{type.desc}</p>
+                            </div>
+                            {isSelected && <CheckCircle className="w-5 h-5 text-red-500 ml-auto" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">备注说明（可选）</h4>
+                    <textarea
+                      value={callNote}
+                      onChange={(e) => setCallNote(e.target.value)}
+                      placeholder="请描述具体需求..."
+                      className="w-full p-3 border-2 border-gray-200 rounded-xl resize-none focus:border-red-500 focus:outline-none text-sm"
+                      rows={2}
+                    />
+                  </div>
+
                   <div className="flex gap-3">
                     <button
                       onClick={() => setShowCallModal(false)}
@@ -549,11 +607,38 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
                     </button>
                     <button
                       onClick={() => {
-                        setCallStatus('calling');
-                        setTimeout(() => setCallStatus('answered'), 2000);
+                        const now = new Date().toISOString();
+                        const newCall = {
+                          id: generateCallId(),
+                          roomId: roomId,
+                          roomName: room.name,
+                          type: callType,
+                          note: callNote || undefined,
+                          status: 'pending' as const,
+                          createdAt: now,
+                          updatedAt: now,
+                        };
+                        const calls = loadCalls([]);
+                        calls.push(newCall);
+                        saveCalls(calls);
+
+                        if (typeof BroadcastChannel !== 'undefined') {
+                          const bc = new BroadcastChannel('meeting_service_calls');
+                          bc.postMessage({ type: 'CALL_CREATED' });
+                          bc.close();
+                        }
+
+                        setCallSuccess(true);
+                        setTimeout(() => {
+                          setCallSuccess(false);
+                          setCallType('cleaning');
+                          setCallNote('');
+                          setShowCallModal(false);
+                        }, 2000);
                       }}
-                      className="flex-1 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-colors"
+                      className="flex-1 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
                     >
+                      <Phone className="w-4 h-4" />
                       确认呼叫
                     </button>
                   </div>
@@ -561,63 +646,16 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
               </>
             )}
 
-            {callStatus === 'calling' && (
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-8 text-center">
-                <div className="relative w-20 h-20 mx-auto mb-4">
-                  <div className="absolute inset-0 bg-white/20 rounded-full animate-ping" />
-                  <div className="absolute inset-2 bg-white/30 rounded-full animate-pulse" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Phone className="w-10 h-10 text-white" />
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">正在呼叫...</h3>
-                <p className="text-white/80 text-sm">请稍候，服务人员即将接听</p>
-                <button
-                  onClick={() => {
-                    setCallStatus('idle');
-                    setShowCallModal(false);
-                  }}
-                  className="mt-6 px-6 py-2 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition-colors"
-                >
-                  取消呼叫
-                </button>
-              </div>
-            )}
-
-            {callStatus === 'answered' && (
+            {callSuccess && (
               <div className="bg-gradient-to-r from-green-500 to-green-600 p-8 text-center">
                 <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle className="w-10 h-10 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">呼叫已接通</h3>
-                <p className="text-white/80 text-sm">服务人员正在赶来</p>
-                <button
-                  onClick={() => {
-                    setCallStatus('completed');
-                  }}
-                  className="mt-6 px-6 py-2 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition-colors"
-                >
-                  结束通话
-                </button>
-              </div>
-            )}
-
-            {callStatus === 'completed' && (
-              <div className="bg-gradient-to-r from-gray-500 to-gray-600 p-8 text-center">
-                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Phone className="w-10 h-10 text-white rotate-[135deg]" />
+                <h3 className="text-xl font-bold text-white mb-2">呼叫已发送</h3>
+                <p className="text-white/80 text-sm">门口服务人员已收到通知</p>
+                <div className="mt-4 text-white/60 text-xs">
+                  正在等待服务人员响应...
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">通话已结束</h3>
-                <p className="text-white/80 text-sm">服务人员已收到您的需求</p>
-                <button
-                  onClick={() => {
-                    setCallStatus('idle');
-                    setShowCallModal(false);
-                  }}
-                  className="mt-6 px-6 py-2 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition-colors"
-                >
-                  关闭
-                </button>
               </div>
             )}
           </div>

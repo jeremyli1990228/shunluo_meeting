@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Users, Building2, Layers, ChevronDown } from 'lucide-react';
 import { RoomCard } from '@/components/RoomCard';
 import { useMeeting } from '@/context/MeetingContext';
 import { mockBuildings } from '@/data/mockData';
+import { loadCalls } from '@/utils/callStorage';
+import { ServiceCall } from '@/types';
 
 interface DashboardProps {
   onRoomClick: (roomId: string) => void;
@@ -15,6 +17,31 @@ export const Dashboard = ({ onRoomClick, showOrderCount = false }: DashboardProp
   const { rooms, orders, config } = state;
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [expandedBuilding, setExpandedBuilding] = useState<string>('b1');
+  const [calls, setCalls] = useState<ServiceCall[]>([]);
+
+  useEffect(() => {
+    setCalls(loadCalls([]));
+
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      bc = new BroadcastChannel('meeting_service_calls');
+      bc.onmessage = () => {
+        setCalls(loadCalls([]));
+      };
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'meeting_service_calls') {
+        setCalls(loadCalls([]));
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   const filteredRooms = selectedGroup === 'all'
     ? rooms
@@ -133,11 +160,15 @@ export const Dashboard = ({ onRoomClick, showOrderCount = false }: DashboardProp
               const roomOrderCount = showOrderCount
                 ? orders.filter(o => o.roomId === room.id && o.status === 'pending').length
                 : 0;
+              const roomCallCount = showOrderCount
+                ? calls.filter(c => c.roomId === room.id && c.status === 'pending').length
+                : 0;
               return (
                 <RoomCard
                   key={room.id}
                   room={room}
                   orderCount={roomOrderCount}
+                  callCount={roomCallCount}
                   onClick={() => onRoomClick(room.id)}
                 />
               );
