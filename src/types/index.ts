@@ -40,6 +40,7 @@ export interface Room {
   devices: Device[];
   hasPeople: boolean;
   energySaving: boolean;
+  currentScene?: ScenePreset;
   building?: string;
   floor?: string;
   area?: string;
@@ -144,4 +145,5 @@ export type MeetingAction =
   | { type: 'UPDATE_ROOMS'; payload: Room[] }
   | { type: 'DETECT_PEOPLE'; payload: { roomId: string; hasPeople: boolean } }
   | { type: 'TOGGLE_ENERGY_SAVING'; payload: { roomId: string; enabled: boolean } }
-  | { type: 'TURN_OFF_ALL_DEVICES'; payload: string };
+  | { type: 'TURN_OFF_ALL_DEVICES'; payload: string }
+  | { type: 'TURN_ON_ALL_DEVICES'; payload: string };

@@ -117,6 +117,7 @@ const reducer = (state: MeetingState, action: MeetingAction): MeetingState => {
         if (r.id === action.payload.roomId) {
           return {
             ...r,
+            currentScene: action.payload.preset,
             devices: r.devices.map(d => {
               const config = sceneConfig[d.type];
               if (config) {
@@ -136,7 +137,26 @@ const reducer = (state: MeetingState, action: MeetingAction): MeetingState => {
         if (r.id === action.payload) {
           return {
             ...r,
+            currentScene: undefined,
             devices: r.devices.map(d => ({ ...d, isOn: false, value: 0 })),
+          };
+        }
+        return r;
+      });
+      return { ...state, rooms: newRooms };
+    }
+
+    case 'TURN_ON_ALL_DEVICES': {
+      const newRooms = state.rooms.map(r => {
+        if (r.id === action.payload) {
+          return {
+            ...r,
+            currentScene: undefined,
+            devices: r.devices.map(d => ({
+              ...d,
+              isOn: true,
+              value: d.type === 'aircon' ? 24 : d.type === 'light' ? 80 : 100,
+            })),
           };
         }
         return r;
@@ -275,6 +295,7 @@ interface MeetingContextType {
   toggleDevice: (roomId: string, deviceId: string) => void;
   applyScene: (roomId: string, preset: ScenePreset) => void;
   turnOffAllDevices: (roomId: string) => void;
+  turnOnAllDevices: (roomId: string) => void;
   detectPeople: (roomId: string, hasPeople: boolean) => void;
   createOrder: (roomId: string, roomName: string, items: { materialId: string; name: string; quantity: number; price: number }[]) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
@@ -453,6 +474,10 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'TURN_OFF_ALL_DEVICES', payload: roomId });
   };
 
+  const turnOnAllDevices = (roomId: string) => {
+    dispatch({ type: 'TURN_ON_ALL_DEVICES', payload: roomId });
+  };
+
   const detectPeople = (roomId: string, hasPeople: boolean) => {
     dispatch({ type: 'DETECT_PEOPLE', payload: { roomId, hasPeople } });
   };
@@ -504,6 +529,7 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
         toggleDevice,
         applyScene,
         turnOffAllDevices,
+        turnOnAllDevices,
         detectPeople,
         createOrder,
         updateOrderStatus,

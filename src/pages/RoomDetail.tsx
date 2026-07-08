@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   ArrowLeft,
   Zap,
-  UserCheck,
   Power,
   Lightbulb,
   Presentation,
@@ -14,6 +13,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   ChevronUp,
+  PowerOff,
 } from 'lucide-react';
 import { MeetingCard } from '@/components/MeetingCard';
 import { MaterialOrder } from '@/components/MaterialOrder';
@@ -42,13 +42,12 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
     setCurrentRoom,
     applyScene,
     turnOffAllDevices,
-    detectPeople,
+    turnOnAllDevices,
   } = useMeeting();
   const { rooms, materials } = state;
   const [showMaterialOrder, setShowMaterialOrder] = useState(false);
   const [deviceCollapsed, setDeviceCollapsed] = useState(false);
   const [sceneCollapsed, setSceneCollapsed] = useState(false);
-  const [envCollapsed, setEnvCollapsed] = useState(false);
 
   const room = rooms.find(r => r.id === roomId);
   if (!room) return null;
@@ -77,8 +76,8 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
     turnOffAllDevices(roomId);
   };
 
-  const handlePeopleDetect = () => {
-    detectPeople(roomId, !room.hasPeople);
+  const handleTurnOnAllDevices = () => {
+    turnOnAllDevices(roomId);
   };
 
   return (
@@ -149,7 +148,7 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
               )}
             </button>
             {!deviceCollapsed && (
-              <div className="px-4 pb-4">
+              <div className="px-4 pb-4 space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   {room.devices.map(device => {
                     const Icon = deviceIconMap[device.type];
@@ -186,6 +185,22 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
                     );
                   })}
                 </div>
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
+                  <button
+                    onClick={handleTurnOnAllDevices}
+                    className="py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Power className="w-4 h-4" />
+                    开启所有
+                  </button>
+                  <button
+                    onClick={handleTurnOffAllDevices}
+                    className="py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <PowerOff className="w-4 h-4" />
+                    关闭所有
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -205,116 +220,45 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
             </button>
             {!sceneCollapsed && (
               <div className="px-4 pb-4 space-y-2">
-                <button
-                  onClick={() => handleApplyScene('standard')}
-                  className="w-full p-3 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors text-left flex items-center gap-3"
-                >
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Lightbulb className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">标准会议</p>
-                    <p className="text-xs text-gray-500">灯光80% 投影开启</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleApplyScene('presentation')}
-                  className="w-full p-3 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors text-left flex items-center gap-3"
-                >
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Presentation className="w-4 h-4 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">演示模式</p>
-                    <p className="text-xs text-gray-500">灯光50% 窗帘关闭</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleApplyScene('energy-saving')}
-                  className="w-full p-3 bg-green-50 rounded-xl hover:bg-green-100 transition-colors text-left flex items-center gap-3"
-                >
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Zap className="w-4 h-4 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">节能模式</p>
-                    <p className="text-xs text-gray-500">灯光30% 空调关闭</p>
-                  </div>
-                </button>
+                {[
+                  { key: 'standard', label: '标准会议', desc: '灯光80% 投影开启', color: 'blue', icon: Lightbulb },
+                  { key: 'presentation', label: '演示模式', desc: '灯光50% 窗帘关闭', color: 'purple', icon: Presentation },
+                  { key: 'energy-saving', label: '节能模式', desc: '灯光30% 空调关闭', color: 'green', icon: Zap },
+                ].map(scene => {
+                  const Icon = scene.icon;
+                  const isActive = room.currentScene === scene.key;
+                  const colorMap: Record<string, { bg: string; iconBg: string; iconText: string; border: string; ring: string }> = {
+                    blue: { bg: isActive ? 'bg-blue-100' : 'bg-blue-50', iconBg: isActive ? 'bg-blue-500' : 'bg-blue-100', iconText: isActive ? 'text-white' : 'text-blue-600', border: isActive ? 'border-blue-500' : 'border-transparent', ring: 'ring-blue-200' },
+                    purple: { bg: isActive ? 'bg-purple-100' : 'bg-purple-50', iconBg: isActive ? 'bg-purple-500' : 'bg-purple-100', iconText: isActive ? 'text-white' : 'text-purple-600', border: isActive ? 'border-purple-500' : 'border-transparent', ring: 'ring-purple-200' },
+                    green: { bg: isActive ? 'bg-green-100' : 'bg-green-50', iconBg: isActive ? 'bg-green-500' : 'bg-green-100', iconText: isActive ? 'text-white' : 'text-green-600', border: isActive ? 'border-green-500' : 'border-transparent', ring: 'ring-green-200' },
+                  };
+                  const colors = colorMap[scene.color];
+                  return (
+                    <button
+                      key={scene.key}
+                      onClick={() => handleApplyScene(scene.key as 'standard' | 'presentation' | 'energy-saving')}
+                      className={`w-full p-3 rounded-xl border-2 ${colors.border} ${colors.bg} hover:brightness-95 transition-all text-left flex items-center gap-3 ${isActive ? 'shadow-sm ring-2 ' + colors.ring : ''}`}
+                    >
+                      <div className={`p-2 ${colors.iconBg} rounded-lg transition-colors`}>
+                        <Icon className={`w-4 h-4 ${colors.iconText}`} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-800 flex items-center gap-2">
+                          {scene.label}
+                          {isActive && (
+                            <span className="px-1.5 py-0.5 text-[10px] rounded bg-white/80 text-gray-600 font-semibold">
+                              当前
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-500">{scene.desc}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
-
-          {/* 环境状态 */}
-          <div className="bg-gray-50 rounded-xl overflow-hidden">
-            <button
-              onClick={() => setEnvCollapsed(!envCollapsed)}
-              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-100 transition-colors"
-            >
-              <h3 className="text-sm font-semibold text-gray-700">环境状态</h3>
-              {envCollapsed ? (
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              ) : (
-                <ChevronUp className="w-4 h-4 text-gray-400" />
-              )}
-            </button>
-            {!envCollapsed && (
-              <div className="px-4 pb-4 space-y-2">
-                <div
-                  onClick={handlePeopleDetect}
-                  className={`p-3 rounded-xl cursor-pointer transition-all flex items-center gap-3 ${
-                    room.hasPeople
-                      ? 'bg-green-50 hover:bg-green-100'
-                      : 'bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <UserCheck
-                    className={`w-5 h-5 ${room.hasPeople ? 'text-green-600' : 'text-gray-400'}`}
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-700">人体感应</p>
-                    <p
-                      className={`text-xs ${
-                        room.hasPeople ? 'text-green-600' : 'text-gray-400'
-                      }`}
-                    >
-                      {room.hasPeople ? '有人' : '无人'}
-                    </p>
-                  </div>
-                </div>
-                <div
-                  className={`p-3 rounded-xl flex items-center gap-3 ${
-                    room.energySaving ? 'bg-yellow-50' : 'bg-white'
-                  }`}
-                >
-                  <Zap
-                    className={`w-5 h-5 ${
-                      room.energySaving ? 'text-yellow-600' : 'text-gray-400'
-                    }`}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">节能状态</p>
-                    <p
-                      className={`text-xs ${
-                        room.energySaving ? 'text-yellow-600' : 'text-gray-400'
-                      }`}
-                    >
-                      {room.energySaving ? '已开启' : '正常'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 手动关闭所有设备 */}
-          <button
-            onClick={handleTurnOffAllDevices}
-            className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
-          >
-            <Power className="w-4 h-4" />
-            关闭所有设备
-          </button>
         </div>
       </div>
 
