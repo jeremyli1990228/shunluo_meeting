@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Zap,
@@ -29,7 +29,7 @@ import {
 import { MeetingCard } from '@/components/MeetingCard';
 import { MaterialOrder } from '@/components/MaterialOrder';
 import { useMeeting } from '@/context/MeetingContext';
-import { DeviceType, CallType } from '@/types';
+import { DeviceType, CallType, ServiceCall } from '@/types';
 import { loadCalls, saveCalls, generateCallId } from '@/utils/callStorage';
 
 interface RoomDetailProps {
@@ -66,6 +66,8 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
   const [callType, setCallType] = useState<CallType>('cleaning');
   const [callNote, setCallNote] = useState('');
   const [callSuccess, setCallSuccess] = useState(false);
+  const [calls, setCalls] = useState<ServiceCall[]>([]);
+  const [selectedCall, setSelectedCall] = useState<ServiceCall | null>(null);
 
   const room = rooms.find(r => r.id === roomId);
   if (!room) return null;
@@ -89,6 +91,30 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
   const handleApplyScene = (preset: 'standard' | 'presentation' | 'energy-saving') => {
     applyScene(roomId, preset);
   };
+
+  useEffect(() => {
+    setCalls(loadCalls([]));
+
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      bc = new BroadcastChannel('meeting_service_calls');
+      bc.onmessage = () => {
+        setCalls(loadCalls([]));
+      };
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'meeting_service_calls') {
+        setCalls(loadCalls([]));
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   const handleTurnOffAllDevices = () => {
     turnOffAllDevices(roomId);
@@ -293,6 +319,7 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
             </button>
             {!orderCollapsed && (
               <div className="px-4 pb-4 space-y-2">
+                {/* 订单列表 */}
                 {orders
                   .filter(o => o.roomId === roomId)
                   .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -351,11 +378,79 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
                       </div>
                     );
                   })}
-                {orders.filter(o => o.roomId === roomId).length === 0 && (
+
+                {/* 呼叫服务列表 */}
+                {calls
+                  .filter(c => c.roomId === roomId)
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .map(call => {
+                    const getCallTypeInfo = (type: string) => {
+                      switch (type) {
+                        case 'cleaning':
+                          return { icon: SprayCan, label: '清洁打扫', color: 'text-blue-600', bg: 'bg-blue-50' };
+                        case 'maintenance':
+                          return { icon: Wrench, label: '设备维护', color: 'text-purple-600', bg: 'bg-purple-50' };
+                        case 'other':
+                          return { icon: HelpCircle, label: '其他事务', color: 'text-orange-600', bg: 'bg-orange-50' };
+                        default:
+                          return { icon: HelpCircle, label: '未知', color: 'text-gray-600', bg: 'bg-gray-50' };
+                      }
+                    };
+                    const getCallStatusInfo = (status: string) => {
+                      switch (status) {
+                        case 'pending':
+                          return { icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-50', label: '待响应', steps: ['已呼叫', '处理中', '已完成'], current: 0 };
+                        case 'handling':
+                          return { icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50', label: '处理中', steps: ['已呼叫', '处理中', '已完成'], current: 1 };
+                        case 'completed':
+                          return { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-50', label: '已完成', steps: ['已呼叫', '处理中', '已完成'], current: 2 };
+                        case 'cancelled':
+                          return { icon: X, color: 'text-gray-400', bg: 'bg-gray-50', label: '已取消', steps: ['已呼叫', '已取消'], current: 1 };
+                        default:
+                          return { icon: AlertCircle, color: 'text-gray-400', bg: 'bg-gray-50', label: '未知', steps: [], current: 0 };
+                      }
+                    };
+                    const typeInfo = getCallTypeInfo(call.type);
+                    const statusInfo = getCallStatusInfo(call.status);
+                    return (
+                      <div
+                        key={call.id}
+                        onClick={() => setSelectedCall(call)}
+                        className="bg-white p-3 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors border border-gray-100"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-8 h-8 ${statusInfo.bg} rounded-lg flex items-center justify-center`}>
+                              <Phone className={`w-4 h-4 ${statusInfo.color}`} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">{typeInfo.label}</p>
+                              <p className="text-xs text-gray-400">
+                                {statusInfo.label} · {new Date(call.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-300" />
+                        </div>
+                        <div className="mt-3 flex items-center gap-1">
+                          {statusInfo.steps.map((_, index) => (
+                            <div key={index} className="flex items-center">
+                              <div className={`w-2 h-2 rounded-full ${index <= statusInfo.current ? 'bg-red-500' : 'bg-gray-200'}`} />
+                              {index < statusInfo.steps.length - 1 && (
+                                <div className={`w-4 h-0.5 ${index < statusInfo.current ? 'bg-red-500' : 'bg-gray-200'}`} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {orders.filter(o => o.roomId === roomId).length === 0 && calls.filter(c => c.roomId === roomId).length === 0 && (
                   <div className="text-center py-6 text-gray-400">
                     <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">暂无订单</p>
-                    <p className="text-xs">点击下方按钮点餐</p>
+                    <p className="text-sm">暂无订单和呼叫</p>
+                    <p className="text-xs">点击下方按钮点餐或呼叫服务</p>
                   </div>
                 )}
               </div>
@@ -524,6 +619,133 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
                   {selectedOrder.status === 'pending' ? '待处理' :
                    selectedOrder.status === 'preparing' ? '准备中' :
                    selectedOrder.status === 'delivered' ? '已送达' : '已取消'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 呼叫详情弹窗 */}
+      {selectedCall && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="bg-gradient-to-r from-red-500 to-red-600 p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Phone className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">呼叫详情</h3>
+                    <p className="text-white/80 text-sm">{selectedCall.roomName}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedCall(null)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                <Phone className="w-5 h-5 text-red-500" />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">呼叫类型</p>
+                  <p className="text-xs text-gray-500">
+                    {selectedCall.type === 'cleaning' ? '清洁打扫' :
+                     selectedCall.type === 'maintenance' ? '设备维护' : '其他事务'}
+                  </p>
+                </div>
+              </div>
+
+              {selectedCall.note && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">备注说明</h4>
+                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-xl">
+                    {selectedCall.note}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">处理进度</h4>
+                <div className="space-y-3">
+                  {(() => {
+                    switch (selectedCall.status) {
+                      case 'pending':
+                        return [
+                          { step: '已呼叫', time: selectedCall.createdAt, done: true, active: true },
+                          { step: '处理中', time: '', done: false, active: false },
+                          { step: '已完成', time: '', done: false, active: false },
+                        ];
+                      case 'handling':
+                        return [
+                          { step: '已呼叫', time: selectedCall.createdAt, done: true, active: false },
+                          { step: '处理中', time: selectedCall.updatedAt, done: true, active: true },
+                          { step: '已完成', time: '', done: false, active: false },
+                        ];
+                      case 'completed':
+                        return [
+                          { step: '已呼叫', time: selectedCall.createdAt, done: true, active: false },
+                          { step: '处理中', time: '', done: true, active: false },
+                          { step: '已完成', time: selectedCall.updatedAt, done: true, active: true },
+                        ];
+                      case 'cancelled':
+                        return [
+                          { step: '已呼叫', time: selectedCall.createdAt, done: true, active: false },
+                          { step: '已取消', time: selectedCall.updatedAt, done: true, active: true },
+                        ];
+                      default:
+                        return [];
+                    }
+                  })().map((progress, index, arr) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                          progress.done ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-400'
+                        } ${progress.active ? 'ring-2 ring-red-200' : ''}`}>
+                          {progress.done ? (
+                            progress.active ? <Clock className="w-3 h-3" /> : <CheckCircle className="w-3 h-3" />
+                          ) : (
+                            <span className="text-xs">{index + 1}</span>
+                          )}
+                        </div>
+                        {index < arr.length - 1 && (
+                          <div className={`w-0.5 h-6 ${progress.done ? 'bg-red-500' : 'bg-gray-200'}`} />
+                        )}
+                      </div>
+                      <div className="flex-1 pb-3">
+                        <p className={`text-sm font-medium ${progress.active ? 'text-red-600' : progress.done ? 'text-gray-800' : 'text-gray-400'}`}>
+                          {progress.step}
+                        </p>
+                        {progress.time && (
+                          <p className="text-xs text-gray-400">
+                            {new Date(progress.time).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                <div>
+                  <p className="text-xs text-gray-500">呼叫时间</p>
+                  <p className="text-sm text-gray-700">
+                    {new Date(selectedCall.createdAt).toLocaleString('zh-CN')}
+                  </p>
+                </div>
+                <div className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                  selectedCall.status === 'pending' ? 'bg-red-100 text-red-600' :
+                  selectedCall.status === 'handling' ? 'bg-blue-100 text-blue-600' :
+                  selectedCall.status === 'completed' ? 'bg-green-100 text-green-600' :
+                  'bg-gray-100 text-gray-500'
+                }`}>
+                  {selectedCall.status === 'pending' ? '待响应' :
+                   selectedCall.status === 'handling' ? '处理中' :
+                   selectedCall.status === 'completed' ? '已完成' : '已取消'}
                 </div>
               </div>
             </div>
