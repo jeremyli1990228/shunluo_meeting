@@ -115,14 +115,6 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
           </div>
         )}
 
-        {/* 底部：会务物资点餐 */}
-        <button
-          onClick={() => setShowMaterialOrder(true)}
-          className="w-full py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3"
-        >
-          <ShoppingCart className="w-6 h-6" />
-          会务物资点餐
-        </button>
       </div>
 
       {/* 右侧悬浮控制面板 */}
@@ -259,6 +251,15 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
               </div>
             )}
           </div>
+
+          {/* 会务物资点餐 */}
+          <button
+            onClick={() => setShowMaterialOrder(true)}
+            className="w-full py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            会务物资点餐
+          </button>
         </div>
       </div>
 
