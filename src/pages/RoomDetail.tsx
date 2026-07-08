@@ -21,6 +21,7 @@ import {
   Truck,
   X,
   ChevronRight,
+  Phone,
 } from 'lucide-react';
 import { MeetingCard } from '@/components/MeetingCard';
 import { MaterialOrder } from '@/components/MaterialOrder';
@@ -57,6 +58,8 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
   const [sceneCollapsed, setSceneCollapsed] = useState(false);
   const [orderCollapsed, setOrderCollapsed] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<typeof orders[0] | null>(null);
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'answered' | 'completed'>('idle');
 
   const room = rooms.find(r => r.id === roomId);
   if (!room) return null;
@@ -361,6 +364,15 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
             <ShoppingCart className="w-5 h-5" />
             会务物资点餐
           </button>
+
+          {/* 呼叫服务按钮 */}
+          <button
+            onClick={() => setShowCallModal(true)}
+            className="w-full py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3"
+          >
+            <Phone className="w-5 h-5" />
+            呼叫服务
+          </button>
         </div>
       </div>
 
@@ -509,6 +521,105 @@ export const RoomDetail = ({ roomId, onBack }: RoomDetailProps) => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 呼叫服务弹窗 */}
+      {showCallModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            {callStatus === 'idle' && (
+              <>
+                <div className="bg-gradient-to-r from-red-500 to-red-600 p-5 text-center">
+                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Phone className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">呼叫服务</h3>
+                  <p className="text-white/80 text-sm mt-1">{room.name}</p>
+                </div>
+                <div className="p-6 text-center">
+                  <p className="text-gray-600 mb-6">是否确认呼叫会议室外部服务人员？</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowCallModal(false)}
+                      className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCallStatus('calling');
+                        setTimeout(() => setCallStatus('answered'), 2000);
+                      }}
+                      className="flex-1 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-colors"
+                    >
+                      确认呼叫
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {callStatus === 'calling' && (
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-8 text-center">
+                <div className="relative w-20 h-20 mx-auto mb-4">
+                  <div className="absolute inset-0 bg-white/20 rounded-full animate-ping" />
+                  <div className="absolute inset-2 bg-white/30 rounded-full animate-pulse" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Phone className="w-10 h-10 text-white" />
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">正在呼叫...</h3>
+                <p className="text-white/80 text-sm">请稍候，服务人员即将接听</p>
+                <button
+                  onClick={() => {
+                    setCallStatus('idle');
+                    setShowCallModal(false);
+                  }}
+                  className="mt-6 px-6 py-2 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition-colors"
+                >
+                  取消呼叫
+                </button>
+              </div>
+            )}
+
+            {callStatus === 'answered' && (
+              <div className="bg-gradient-to-r from-green-500 to-green-600 p-8 text-center">
+                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-10 h-10 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">呼叫已接通</h3>
+                <p className="text-white/80 text-sm">服务人员正在赶来</p>
+                <button
+                  onClick={() => {
+                    setCallStatus('completed');
+                  }}
+                  className="mt-6 px-6 py-2 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition-colors"
+                >
+                  结束通话
+                </button>
+              </div>
+            )}
+
+            {callStatus === 'completed' && (
+              <div className="bg-gradient-to-r from-gray-500 to-gray-600 p-8 text-center">
+                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Phone className="w-10 h-10 text-white rotate-[135deg]" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">通话已结束</h3>
+                <p className="text-white/80 text-sm">服务人员已收到您的需求</p>
+                <button
+                  onClick={() => {
+                    setCallStatus('idle');
+                    setShowCallModal(false);
+                  }}
+                  className="mt-6 px-6 py-2 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition-colors"
+                >
+                  关闭
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
