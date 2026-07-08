@@ -1,4 +1,4 @@
-import { Lightbulb, Thermometer, Wind, Presentation, Monitor, Power } from 'lucide-react';
+import { Lightbulb, Thermometer, Wind, Presentation, Monitor, Volume2, Power } from 'lucide-react';
 import { Device } from '@/types';
 
 interface DeviceStatusProps {
@@ -19,6 +19,8 @@ const getDeviceIcon = (type: string) => {
       return Presentation;
     case 'tv':
       return Monitor;
+    case 'volume':
+      return Volume2;
     default:
       return Power;
   }
@@ -40,7 +42,7 @@ const getStatusColor = (status: string, isOn: boolean) => {
 
 export const DeviceStatus = ({ devices, onToggle, showControls = true }: DeviceStatusProps) => {
   return (
-    <div className="grid grid-cols-5 gap-3">
+    <div className="grid grid-cols-6 gap-3">
       {devices.map(device => {
         const Icon = getDeviceIcon(device.type);
         const colorClass = getStatusColor(device.status, device.isOn);

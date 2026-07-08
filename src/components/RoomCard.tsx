@@ -1,13 +1,14 @@
-import { Building2, Users, Zap, WifiOff } from 'lucide-react';
+import { Building2, Users, Zap, WifiOff, MapPin, ShoppingBag } from 'lucide-react';
 import { Room } from '@/types';
 import { formatTime, getMinutesRemaining } from '@/utils/timeUtils';
 
 interface RoomCardProps {
   room: Room;
   onClick: () => void;
+  orderCount?: number;
 }
 
-export const RoomCard = ({ room, onClick }: RoomCardProps) => {
+export const RoomCard = ({ room, onClick, orderCount = 0 }: RoomCardProps) => {
   const isOccupied = room.status === 'occupied';
   const isImportant = room.currentMeeting?.level === 'important';
   const hasError = room.devices.some(d => d.status === 'error');
@@ -18,75 +19,108 @@ export const RoomCard = ({ room, onClick }: RoomCardProps) => {
       : 'bg-gradient-to-br from-blue-500 to-blue-700 text-white'
     : 'bg-gray-100 text-gray-700 hover:bg-gray-200';
 
-  const getDeviceStatusText = () => {
-    const online = room.devices.filter(d => d.status === 'online').length;
-    const total = room.devices.length;
-    return `${online}/${total} 设备在线`;
-  };
-
   return (
     <div
       onClick={onClick}
-      className={`relative rounded-2xl p-5 shadow-md cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-[1.02] ${cardClasses}`}
+      className={`relative rounded-2xl shadow-md cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-[1.02] overflow-hidden ${cardClasses}`}
     >
-      {hasError && (
-        <div className="absolute top-3 right-3">
+      {/* 订单标记 */}
+      {orderCount > 0 && (
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500 text-white text-xs font-bold animate-pulse">
+          <ShoppingBag className="w-3 h-3" />
+          {orderCount}
+        </div>
+      )}
+
+      {/* 错误状态图标 */}
+      {hasError && orderCount === 0 && (
+        <div className="absolute top-3 right-3 z-10">
           <WifiOff className={`w-5 h-5 ${isOccupied ? 'text-red-300' : 'text-red-500'}`} />
         </div>
       )}
 
-      {room.energySaving && (
-        <div className="absolute top-3 right-3">
+      {/* 节能模式图标 */}
+      {room.energySaving && !hasError && orderCount === 0 && (
+        <div className="absolute top-3 right-3 z-10">
           <Zap className={`w-5 h-5 ${isOccupied ? 'text-yellow-300' : 'text-yellow-500'}`} />
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl ${isOccupied ? 'bg-white/20' : 'bg-gray-200'}`}>
-            <Building2 className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="font-bold text-lg">{room.name}</h3>
-            <div className="flex items-center gap-1 text-sm">
-              <Users className="w-3 h-3" />
-              <span>{room.capacity}人</span>
+      {isOccupied ? (
+        <>
+          {/* 占用状态：会议信息 */}
+          <div className="p-5 relative">
+            {/* 顶部信息：会议室名 + 标签 */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg ${isImportant ? 'bg-white/20' : 'bg-white/20'}`}>
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <h3 className="font-bold text-base">{room.name}</h3>
+              </div>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                isImportant ? 'bg-white/25 text-white' : 'bg-white/25 text-white'
+              }`}>
+                {isImportant ? '重要' : '占用'}
+              </span>
+            </div>
+
+            {/* 人数和楼层 */}
+            <div className="flex items-center gap-3 text-xs opacity-80 mb-4">
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                {room.capacity}人
+              </span>
+              {room.floor && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {room.floor}
+                </span>
+              )}
+            </div>
+
+            {/* 会议时间（大字体） */}
+            <div className="text-2xl font-bold tracking-wider">
+              {formatTime(room.currentMeeting?.startTime || '')}-{formatTime(room.currentMeeting?.endTime || '')}
             </div>
           </div>
-        </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-          isOccupied
-            ? isImportant
-              ? 'bg-red-400/30 text-red-100'
-              : 'bg-blue-400/30 text-blue-100'
-            : 'bg-gray-400/30 text-gray-200'
-        }`}>
-          {isOccupied ? (isImportant ? '重要' : '占用') : '空闲'}
-        </span>
-      </div>
 
-      {isOccupied && room.currentMeeting && (
-        <div className="space-y-3">
-          <div>
-            <p className="text-sm opacity-80 mb-1">当前会议</p>
-            <p className="font-semibold truncate">{room.currentMeeting.title}</p>
+          {/* 底部：剩余时长 */}
+          <div className={`px-5 py-3 text-sm ${
+            isImportant ? 'bg-white/15' : 'bg-white/15'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="opacity-80">剩余时长</span>
+              <span className="font-semibold">还有 {getMinutesRemaining(room.currentMeeting?.endTime || '')} 分钟结束</span>
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm opacity-70">
-              {formatTime(room.currentMeeting.startTime)} - {formatTime(room.currentMeeting.endTime)}
-            </span>
-            <span className={`text-xs px-2 py-1 rounded-lg ${
-              isImportant ? 'bg-red-400/20' : 'bg-blue-400/20'
-            }`}>
-              剩余 {getMinutesRemaining(room.currentMeeting.endTime)} 分钟
+        </>
+      ) : (
+        /* 空闲状态 */
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-gray-200">
+                <Building2 className="w-4 h-4 text-gray-600" />
+              </div>
+              <h3 className="font-bold text-base text-gray-800">{room.name}</h3>
+            </div>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
+              空闲
             </span>
           </div>
-        </div>
-      )}
-
-      {!isOccupied && (
-        <div className="mt-4 p-3 rounded-xl bg-white/10">
-          <p className="text-sm opacity-70">{getDeviceStatusText()}</p>
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              <Users className="w-3 h-3" />
+              {room.capacity}人
+            </span>
+            {room.floor && (
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {room.floor}
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>

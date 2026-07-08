@@ -6,11 +6,12 @@ import { useMeeting } from '@/context/MeetingContext';
 interface MaterialOrderProps {
   materials: Material[];
   roomId: string;
+  roomName: string;
   onClose: () => void;
 }
 
-export const MaterialOrder = ({ materials, roomId, onClose }: MaterialOrderProps) => {
-  const { orderMaterials } = useMeeting();
+export const MaterialOrder = ({ materials, roomId, roomName, onClose }: MaterialOrderProps) => {
+  const { createOrder } = useMeeting();
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -32,10 +33,8 @@ export const MaterialOrder = ({ materials, roomId, onClose }: MaterialOrderProps
       materialId: m.id,
       name: m.name,
       quantity: getQuantity(m.id),
-      price: m.price,
+      price: 0,
     }));
-
-  const totalPrice = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const handleOrder = () => {
     if (selectedItems.length === 0) return;
@@ -43,7 +42,7 @@ export const MaterialOrder = ({ materials, roomId, onClose }: MaterialOrderProps
   };
 
   const confirmOrder = () => {
-    orderMaterials(roomId, selectedItems);
+    createOrder(roomId, roomName, selectedItems);
     setShowConfirm(false);
     setQuantities({});
     onClose();
@@ -78,7 +77,6 @@ export const MaterialOrder = ({ materials, roomId, onClose }: MaterialOrderProps
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h4 className="font-medium text-gray-800">{material.name}</h4>
-                          <p className="text-sm text-gray-500">¥{material.price}</p>
                         </div>
                         {!material.available && (
                           <span className="text-xs text-gray-400">售罄</span>
@@ -117,10 +115,6 @@ export const MaterialOrder = ({ materials, roomId, onClose }: MaterialOrderProps
               <ShoppingCart className="w-5 h-5 text-gray-600" />
               <span className="text-gray-600">已选 {selectedItems.length} 项</span>
             </div>
-            <div className="text-right">
-              <span className="text-gray-500 text-sm">合计</span>
-              <p className="text-xl font-bold text-blue-600">¥{totalPrice}</p>
-            </div>
           </div>
           <button
             onClick={handleOrder}
@@ -144,13 +138,9 @@ export const MaterialOrder = ({ materials, roomId, onClose }: MaterialOrderProps
                 {selectedItems.map((item, index) => (
                   <div key={index} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
                     <span>{item.name}</span>
-                    <span className="font-medium">x{item.quantity} ¥{item.price * item.quantity}</span>
+                    <span className="font-medium">x{item.quantity}</span>
                   </div>
                 ))}
-              </div>
-              <div className="flex justify-between items-center mb-6">
-                <span className="text-gray-600">总计</span>
-                <span className="text-xl font-bold text-blue-600">¥{totalPrice}</span>
               </div>
               <div className="flex gap-3">
                 <button

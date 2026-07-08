@@ -1,17 +1,46 @@
-import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { MeetingState, MeetingAction, Meeting, Room } from '@/types';
-import { mockMeetings, mockRooms, mockMaterials, defaultConfig } from '@/data/mockData';
+import { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
+import { MeetingState, MeetingAction, Meeting, Room, ScenePreset, MaterialOrder, DeviceRole, OrderStatus } from '@/types';
+import { mockMeetings, mockRooms, mockMaterials, mockOrders, defaultConfig } from '@/data/mockData';
 import { loadConfig, loadMaterials, saveConfig, saveMaterials } from '@/utils/storageUtils';
+import { loadOrders, saveOrders } from '@/utils/orderStorage';
 import { getMeetingStatus } from '@/utils/timeUtils';
 
 const initialState: MeetingState = {
   meetings: mockMeetings,
   rooms: mockRooms,
   materials: loadMaterials(mockMaterials),
+  orders: loadOrders(mockOrders),
   config: loadConfig(defaultConfig),
   activeModal: null,
   modalData: {},
-  currentRoomId: null,
+  currentRoomId: loadConfig(defaultConfig).currentRoomId || null,
+};
+
+const sceneConfigs: Record<ScenePreset, Record<string, { isOn: boolean; value: number }>> = {
+  'standard': {
+    light: { isOn: true, value: 80 },
+    projector: { isOn: true, value: 100 },
+    volume: { isOn: true, value: 70 },
+    aircon: { isOn: true, value: 24 },
+    curtain: { isOn: true, value: 50 },
+    tv: { isOn: false, value: 0 },
+  },
+  'presentation': {
+    light: { isOn: true, value: 50 },
+    projector: { isOn: true, value: 100 },
+    volume: { isOn: true, value: 80 },
+    aircon: { isOn: true, value: 25 },
+    curtain: { isOn: true, value: 0 },
+    tv: { isOn: false, value: 0 },
+  },
+  'energy-saving': {
+    light: { isOn: true, value: 30 },
+    projector: { isOn: false, value: 0 },
+    volume: { isOn: false, value: 0 },
+    aircon: { isOn: false, value: 0 },
+    curtain: { isOn: true, value: 100 },
+    tv: { isOn: false, value: 0 },
+  },
 };
 
 const reducer = (state: MeetingState, action: MeetingAction): MeetingState => {
@@ -82,6 +111,39 @@ const reducer = (state: MeetingState, action: MeetingAction): MeetingState => {
       return { ...state, rooms: newRooms };
     }
 
+    case 'APPLY_SCENE': {
+      const sceneConfig = sceneConfigs[action.payload.preset];
+      const newRooms = state.rooms.map(r => {
+        if (r.id === action.payload.roomId) {
+          return {
+            ...r,
+            devices: r.devices.map(d => {
+              const config = sceneConfig[d.type];
+              if (config) {
+                return { ...d, isOn: config.isOn, value: config.value };
+              }
+              return d;
+            }),
+          };
+        }
+        return r;
+      });
+      return { ...state, rooms: newRooms };
+    }
+
+    case 'TURN_OFF_ALL_DEVICES': {
+      const newRooms = state.rooms.map(r => {
+        if (r.id === action.payload) {
+          return {
+            ...r,
+            devices: r.devices.map(d => ({ ...d, isOn: false, value: 0 })),
+          };
+        }
+        return r;
+      });
+      return { ...state, rooms: newRooms };
+    }
+
     case 'ADD_MATERIAL': {
       const newMaterials = [...state.materials, action.payload];
       saveMaterials(newMaterials);
@@ -96,12 +158,30 @@ const reducer = (state: MeetingState, action: MeetingAction): MeetingState => {
       return { ...state, materials: newMaterials };
     }
 
-    case 'ORDER_MATERIAL': {
-      return {
-        ...state,
-        activeModal: 'success',
-        modalData: { order: action.payload },
-      };
+    case 'CREATE_ORDER': {
+      const newOrders = [...state.orders, action.payload];
+      saveOrders(newOrders);
+      return { ...state, orders: newOrders };
+    }
+
+    case 'UPDATE_ORDER_STATUS': {
+      const newOrders = state.orders.map(o =>
+        o.id === action.payload.orderId
+          ? { ...o, status: action.payload.status, updatedAt: new Date().toISOString() }
+          : o
+      );
+      saveOrders(newOrders);
+      return { ...state, orders: newOrders };
+    }
+
+    case 'CLEAR_ORDERS': {
+      const newOrders = state.orders.filter(o => o.roomId !== action.payload);
+      saveOrders(newOrders);
+      return { ...state, orders: newOrders };
+    }
+
+    case 'UPDATE_ORDERS_FROM_STORAGE': {
+      return { ...state, orders: action.payload };
     }
 
     case 'OPEN_MODAL': {
@@ -123,7 +203,15 @@ const reducer = (state: MeetingState, action: MeetingAction): MeetingState => {
     }
 
     case 'SET_CURRENT_ROOM': {
-      return { ...state, currentRoomId: action.payload };
+      const newConfig = { ...state.config, currentRoomId: action.payload || '' };
+      saveConfig(newConfig);
+      return { ...state, currentRoomId: action.payload, config: newConfig };
+    }
+
+    case 'SET_DEVICE_ROLE': {
+      const newConfig = { ...state.config, deviceRole: action.payload };
+      saveConfig(newConfig);
+      return { ...state, config: newConfig };
     }
 
     case 'UPDATE_MEETINGS': {
@@ -135,16 +223,42 @@ const reducer = (state: MeetingState, action: MeetingAction): MeetingState => {
     }
 
     case 'DETECT_PEOPLE': {
-      const newRooms = state.rooms.map(r =>
-        r.id === action.payload.roomId ? { ...r, hasPeople: action.payload.hasPeople } : r
-      );
+      const newRooms = state.rooms.map(r => {
+        if (r.id === action.payload.roomId) {
+          const hasPeople = action.payload.hasPeople;
+          let newDevices = r.devices;
+          
+          if (hasPeople && !r.hasPeople) {
+            newDevices = r.devices.map(d => ({ ...d, isOn: true, value: d.type === 'aircon' ? 24 : d.type === 'light' ? 80 : 100 }));
+          }
+          
+          return { ...r, hasPeople, devices: newDevices };
+        }
+        return r;
+      });
       return { ...state, rooms: newRooms };
     }
 
     case 'TOGGLE_ENERGY_SAVING': {
-      const newRooms = state.rooms.map(r =>
-        r.id === action.payload.roomId ? { ...r, energySaving: action.payload.enabled } : r
-      );
+      const newRooms = state.rooms.map(r => {
+        if (r.id === action.payload.roomId) {
+          const enabled = action.payload.enabled;
+          let newDevices = r.devices;
+          
+          if (enabled) {
+            newDevices = r.devices.map(d => {
+              if (d.type === 'light') return { ...d, isOn: true, value: 30 };
+              if (d.type === 'aircon') return { ...d, isOn: false, value: 0 };
+              if (d.type === 'projector') return { ...d, isOn: false, value: 0 };
+              if (d.type === 'volume') return { ...d, isOn: false, value: 0 };
+              return d;
+            });
+          }
+          
+          return { ...r, energySaving: enabled, devices: newDevices };
+        }
+        return r;
+      });
       return { ...state, rooms: newRooms };
     }
 
@@ -159,9 +273,14 @@ interface MeetingContextType {
   addMeeting: (meeting: Omit<Meeting, 'id' | 'status'>) => void;
   endMeeting: (meetingId: string) => void;
   toggleDevice: (roomId: string, deviceId: string) => void;
-  orderMaterials: (roomId: string, items: { materialId: string; name: string; quantity: number; price: number }[]) => void;
-  updateConfig: (config: Partial<{ reminderTime: number; refreshInterval: number; energySavingTimeout: number }>) => void;
-  updateMaterial: (material: { id: string; category: string; name: string; price: number; available: boolean }) => void;
+  applyScene: (roomId: string, preset: ScenePreset) => void;
+  turnOffAllDevices: (roomId: string) => void;
+  detectPeople: (roomId: string, hasPeople: boolean) => void;
+  createOrder: (roomId: string, roomName: string, items: { materialId: string; name: string; quantity: number; price: number }[]) => void;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  clearOrders: (roomId: string) => void;
+  updateConfig: (config: Partial<{ reminderTime: number; refreshInterval: number; energySavingTimeout: number; deviceRole: DeviceRole; currentRoomId: string }>) => void;
+  setDeviceRole: (role: DeviceRole) => void;
   setCurrentRoom: (roomId: string | null) => void;
 }
 
@@ -169,15 +288,21 @@ const MeetingContext = createContext<MeetingContextType | null>(null);
 
 export const MeetingProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const stateRef = useRef(state);
+  
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     const updateMeetingStatus = () => {
-      const updatedMeetings: Meeting[] = state.meetings.map(m => ({
+      const currentState = stateRef.current;
+      const updatedMeetings: Meeting[] = currentState.meetings.map(m => ({
         ...m,
         status: getMeetingStatus(m.startTime, m.endTime),
       }));
 
-      const updatedRooms: Room[] = state.rooms.map(r => {
+      const updatedRooms: Room[] = currentState.rooms.map(r => {
         const meeting = r.currentMeeting
           ? updatedMeetings.find(m => m.id === r.currentMeeting?.id)
           : null;
@@ -195,18 +320,27 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
     updateMeetingStatus();
     const interval = setInterval(updateMeetingStatus, state.config.refreshInterval * 1000);
     return () => clearInterval(interval);
-  }, [state.config.refreshInterval, state.meetings, state.rooms]);
+  }, [state.config.refreshInterval]);
 
   useEffect(() => {
     const checkReminders = () => {
-      state.meetings.forEach(meeting => {
+      const currentState = stateRef.current;
+      const now = new Date();
+      
+      currentState.meetings.forEach(meeting => {
         if (meeting.status !== 'ongoing') return;
 
         const endTime = new Date(meeting.endTime);
-        const now = new Date();
         const minutesRemaining = Math.floor((endTime.getTime() - now.getTime()) / (1000 * 60));
+        const reminderTime = currentState.config.reminderTime;
 
-        if (minutesRemaining === state.config.reminderTime) {
+        if (minutesRemaining <= reminderTime && minutesRemaining > 0 && !meeting.reminded) {
+          dispatch({
+            type: 'UPDATE_MEETINGS',
+            payload: currentState.meetings.map(m => 
+              m.id === meeting.id ? { ...m, reminded: true } : m
+            ),
+          });
           dispatch({
             type: 'OPEN_MODAL',
             payload: {
@@ -218,14 +352,14 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
       });
     };
 
-    checkReminders();
-    const interval = setInterval(checkReminders, 60 * 1000);
+    const interval = setInterval(checkReminders, 30 * 1000);
     return () => clearInterval(interval);
-  }, [state.meetings, state.config.reminderTime]);
+  }, [state.config.reminderTime]);
 
   useEffect(() => {
     const checkEnergySaving = () => {
-      state.rooms.forEach(room => {
+      const currentState = stateRef.current;
+      currentState.rooms.forEach(room => {
         if (!room.currentMeeting || room.currentMeeting.status !== 'ongoing') return;
 
         if (!room.hasPeople && !room.energySaving) {
@@ -236,10 +370,63 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
       });
     };
 
-    checkEnergySaving();
     const interval = setInterval(checkEnergySaving, state.config.energySavingTimeout * 60 * 1000);
     return () => clearInterval(interval);
-  }, [state.rooms, state.config.energySavingTimeout]);
+  }, [state.config.energySavingTimeout]);
+
+  useEffect(() => {
+    const checkPostMeeting = () => {
+      const currentState = stateRef.current;
+      currentState.rooms.forEach(room => {
+        if (room.status === 'available' && !room.hasPeople) {
+          const allOff = room.devices.every(d => !d.isOn);
+          if (!allOff) {
+            dispatch({ type: 'TURN_OFF_ALL_DEVICES', payload: room.id });
+          }
+        }
+      });
+    };
+
+    const interval = setInterval(checkPostMeeting, 15 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 跨窗口实时同步订单
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    
+    if (typeof BroadcastChannel !== 'undefined') {
+      bc = new BroadcastChannel('meeting_orders');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'ORDER_UPDATED') {
+          const storedOrders = loadOrders([]);
+          dispatch({ type: 'UPDATE_ORDERS_FROM_STORAGE', payload: storedOrders } as MeetingAction);
+        }
+      };
+    }
+
+    // Fallback: 使用 storage 事件
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'meeting_orders') {
+        const storedOrders = loadOrders([]);
+        dispatch({ type: 'UPDATE_ORDERS_FROM_STORAGE', payload: storedOrders } as MeetingAction);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  const broadcastOrderUpdate = () => {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('meeting_orders');
+      bc.postMessage({ type: 'ORDER_UPDATED' });
+      bc.close();
+    }
+  };
 
   const addMeeting = (meetingData: Omit<Meeting, 'id' | 'status'>) => {
     const newMeeting: Meeting = {
@@ -258,16 +445,49 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'TOGGLE_DEVICE', payload: { roomId, deviceId } });
   };
 
-  const orderMaterials = (roomId: string, items: { materialId: string; name: string; quantity: number; price: number }[]) => {
-    dispatch({ type: 'ORDER_MATERIAL', payload: { roomId, items } });
+  const applyScene = (roomId: string, preset: ScenePreset) => {
+    dispatch({ type: 'APPLY_SCENE', payload: { roomId, preset } });
   };
 
-  const updateConfig = (config: Partial<{ reminderTime: number; refreshInterval: number; energySavingTimeout: number }>) => {
+  const turnOffAllDevices = (roomId: string) => {
+    dispatch({ type: 'TURN_OFF_ALL_DEVICES', payload: roomId });
+  };
+
+  const detectPeople = (roomId: string, hasPeople: boolean) => {
+    dispatch({ type: 'DETECT_PEOPLE', payload: { roomId, hasPeople } });
+  };
+
+  const createOrder = (roomId: string, roomName: string, items: { materialId: string; name: string; quantity: number; price: number }[]) => {
+    const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const newOrder: MaterialOrder = {
+      id: `order_${Date.now()}`,
+      roomId,
+      roomName,
+      items,
+      totalPrice,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    dispatch({ type: 'CREATE_ORDER', payload: newOrder });
+    broadcastOrderUpdate();
+  };
+
+  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
+    dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { orderId, status } });
+    broadcastOrderUpdate();
+  };
+
+  const clearOrders = (roomId: string) => {
+    dispatch({ type: 'CLEAR_ORDERS', payload: roomId });
+  };
+
+  const updateConfig = (config: Partial<{ reminderTime: number; refreshInterval: number; energySavingTimeout: number; deviceRole: DeviceRole; currentRoomId: string }>) => {
     dispatch({ type: 'UPDATE_CONFIG', payload: config });
   };
 
-  const updateMaterial = (material: { id: string; category: string; name: string; price: number; available: boolean }) => {
-    dispatch({ type: 'UPDATE_MATERIAL', payload: material });
+  const setDeviceRole = (role: DeviceRole) => {
+    dispatch({ type: 'SET_DEVICE_ROLE', payload: role });
   };
 
   const setCurrentRoom = (roomId: string | null) => {
@@ -282,9 +502,14 @@ export const MeetingProvider = ({ children }: { children: ReactNode }) => {
         addMeeting,
         endMeeting,
         toggleDevice,
-        orderMaterials,
+        applyScene,
+        turnOffAllDevices,
+        detectPeople,
+        createOrder,
+        updateOrderStatus,
+        clearOrders,
         updateConfig,
-        updateMaterial,
+        setDeviceRole,
         setCurrentRoom,
       }}
     >

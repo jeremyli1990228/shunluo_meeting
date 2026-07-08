@@ -1,4 +1,4 @@
-import { Meeting, Room, Material, Config } from '@/types';
+import { Meeting, Room, Material, Config, Building, MaterialOrder } from '@/types';
 
 const now = new Date();
 const formatTime = (date: Date) => date.toISOString();
@@ -13,6 +13,16 @@ export const mockMeetings: Meeting[] = [
     roomId: 'r1',
     participants: ['张三', '李四', '王五'],
     status: 'ongoing',
+    reminded: false,
+    contact: '张三 138****1234',
+    category: '产品评审',
+    department: '产品部',
+    content: '本次会议主要讨论Q3季度新产品线的需求规划，包括用户调研结果分析、核心功能定义、优先级排序以及技术可行性评估。请各部门提前准备相关材料，会议中逐一评审。',
+    attachments: [
+      { id: 'a1', name: 'Q3产品需求文档V2.0.pdf', type: 'pdf', size: '2.4MB' },
+      { id: 'a2', name: '用户调研报告.xlsx', type: 'xlsx', size: '856KB' },
+      { id: 'a3', name: '原型设计稿.fig', type: 'figma', size: '12.8MB' },
+    ],
   },
   {
     id: 'm2',
@@ -23,6 +33,15 @@ export const mockMeetings: Meeting[] = [
     roomId: 'r2',
     participants: ['赵六', '钱七'],
     status: 'ongoing',
+    reminded: false,
+    contact: '赵六 139****5678',
+    category: '技术培训',
+    department: '研发部',
+    content: '分享微服务架构下的分布式事务处理方案，包括TCC、Saga、本地消息表等模式的对比与实践，结合项目案例讲解落地经验。',
+    attachments: [
+      { id: 'a4', name: '分布式事务方案对比.pptx', type: 'pptx', size: '5.2MB' },
+      { id: 'a5', name: '示例代码.zip', type: 'zip', size: '1.1MB' },
+    ],
   },
   {
     id: 'm3',
@@ -33,6 +52,14 @@ export const mockMeetings: Meeting[] = [
     roomId: 'r3',
     participants: ['孙八', '周九'],
     status: 'upcoming',
+    reminded: false,
+    contact: '孙八 137****9012',
+    category: '日常例会',
+    department: '运营部',
+    content: '本周工作总结与下周工作计划汇报，各项目负责人依次汇报进度，讨论遇到的问题和需要协调的资源。',
+    attachments: [
+      { id: 'a6', name: '周会模板.docx', type: 'docx', size: '128KB' },
+    ],
   },
   {
     id: 'm4',
@@ -43,6 +70,33 @@ export const mockMeetings: Meeting[] = [
     roomId: 'r4',
     participants: ['吴十', '郑十一'],
     status: 'ongoing',
+    reminded: false,
+    contact: '吴十 136****3456',
+    category: '紧急处理',
+    department: '运维部',
+    content: '线上系统出现异常告警，需要紧急排查问题原因，制定修复方案，评估影响范围，并安排后续的优化措施。',
+    attachments: [
+      { id: 'a7', name: '告警日志.txt', type: 'txt', size: '256KB' },
+      { id: 'a8', name: '系统架构图.png', type: 'png', size: '680KB' },
+    ],
+  },
+  {
+    id: 'm5',
+    title: '快速同步会',
+    level: 'normal',
+    startTime: formatTime(new Date(now.getTime() - 10 * 60 * 1000)),
+    endTime: formatTime(new Date(now.getTime() + 10 * 60 * 1000)),
+    roomId: 'r5',
+    participants: ['王十二', '陈十三'],
+    status: 'ongoing',
+    reminded: false,
+    contact: '王十二 135****7890',
+    category: '项目同步',
+    department: '项目部',
+    content: '项目进度快速同步，确认当前里程碑完成情况，风险点同步，以及下一步行动计划。',
+    attachments: [
+      { id: 'a9', name: '项目进度表.xlsx', type: 'xlsx', size: '320KB' },
+    ],
   },
 ];
 
@@ -55,12 +109,16 @@ export const mockRooms: Room[] = [
     currentMeeting: mockMeetings[0],
     hasPeople: true,
     energySaving: false,
+    building: 'A栋',
+    floor: '3F',
+    area: 'A3',
     devices: [
       { id: 'd1-1', type: 'light', name: '主灯', status: 'online', value: 80, isOn: true },
       { id: 'd1-2', type: 'aircon', name: '空调', status: 'online', value: 24, isOn: true },
       { id: 'd1-3', type: 'curtain', name: '窗帘', status: 'online', value: 50, isOn: true },
       { id: 'd1-4', type: 'projector', name: '投影仪', status: 'online', value: 100, isOn: true },
       { id: 'd1-5', type: 'tv', name: '电视', status: 'online', value: 100, isOn: false },
+      { id: 'd1-6', type: 'volume', name: '音量', status: 'online', value: 70, isOn: true },
     ],
   },
   {
@@ -71,12 +129,16 @@ export const mockRooms: Room[] = [
     currentMeeting: mockMeetings[1],
     hasPeople: false,
     energySaving: false,
+    building: 'A栋',
+    floor: '3F',
+    area: 'A3',
     devices: [
       { id: 'd2-1', type: 'light', name: '主灯', status: 'online', value: 60, isOn: true },
       { id: 'd2-2', type: 'aircon', name: '空调', status: 'online', value: 25, isOn: true },
       { id: 'd2-3', type: 'curtain', name: '窗帘', status: 'offline', value: 0, isOn: false },
       { id: 'd2-4', type: 'projector', name: '投影仪', status: 'online', value: 80, isOn: true },
       { id: 'd2-5', type: 'tv', name: '电视', status: 'online', value: 100, isOn: false },
+      { id: 'd2-6', type: 'volume', name: '音量', status: 'online', value: 50, isOn: true },
     ],
   },
   {
@@ -87,12 +149,16 @@ export const mockRooms: Room[] = [
     currentMeeting: null,
     hasPeople: false,
     energySaving: false,
+    building: 'A栋',
+    floor: 'B1',
+    area: 'B1',
     devices: [
       { id: 'd3-1', type: 'light', name: '主灯', status: 'online', value: 0, isOn: false },
       { id: 'd3-2', type: 'aircon', name: '空调', status: 'online', value: 0, isOn: false },
       { id: 'd3-3', type: 'curtain', name: '窗帘', status: 'online', value: 0, isOn: false },
       { id: 'd3-4', type: 'projector', name: '投影仪', status: 'online', value: 0, isOn: false },
       { id: 'd3-5', type: 'tv', name: '电视', status: 'error', value: 0, isOn: false },
+      { id: 'd3-6', type: 'volume', name: '音量', status: 'online', value: 0, isOn: false },
     ],
   },
   {
@@ -103,28 +169,36 @@ export const mockRooms: Room[] = [
     currentMeeting: mockMeetings[3],
     hasPeople: true,
     energySaving: false,
+    building: 'A栋',
+    floor: 'B2',
+    area: 'B2',
     devices: [
       { id: 'd4-1', type: 'light', name: '主灯', status: 'online', value: 90, isOn: true },
       { id: 'd4-2', type: 'aircon', name: '空调', status: 'online', value: 23, isOn: true },
       { id: 'd4-3', type: 'curtain', name: '窗帘', status: 'online', value: 30, isOn: true },
       { id: 'd4-4', type: 'projector', name: '投影仪', status: 'online', value: 100, isOn: true },
       { id: 'd4-5', type: 'tv', name: '电视', status: 'online', value: 100, isOn: true },
+      { id: 'd4-6', type: 'volume', name: '音量', status: 'online', value: 80, isOn: true },
     ],
   },
   {
     id: 'r5',
     name: '第五会议室',
     capacity: 4,
-    status: 'available',
-    currentMeeting: null,
-    hasPeople: false,
+    status: 'occupied',
+    currentMeeting: mockMeetings[4],
+    hasPeople: true,
     energySaving: false,
+    building: 'A栋',
+    floor: '1F',
+    area: '1F',
     devices: [
-      { id: 'd5-1', type: 'light', name: '主灯', status: 'online', value: 0, isOn: false },
-      { id: 'd5-2', type: 'aircon', name: '空调', status: 'online', value: 0, isOn: false },
-      { id: 'd5-3', type: 'curtain', name: '窗帘', status: 'online', value: 0, isOn: false },
-      { id: 'd5-4', type: 'projector', name: '投影仪', status: 'online', value: 0, isOn: false },
-      { id: 'd5-5', type: 'tv', name: '电视', status: 'online', value: 0, isOn: false },
+      { id: 'd5-1', type: 'light', name: '主灯', status: 'online', value: 70, isOn: true },
+      { id: 'd5-2', type: 'aircon', name: '空调', status: 'online', value: 24, isOn: true },
+      { id: 'd5-3', type: 'curtain', name: '窗帘', status: 'online', value: 50, isOn: true },
+      { id: 'd5-4', type: 'projector', name: '投影仪', status: 'online', value: 80, isOn: true },
+      { id: 'd5-5', type: 'tv', name: '电视', status: 'online', value: 100, isOn: false },
+      { id: 'd5-6', type: 'volume', name: '音量', status: 'online', value: 60, isOn: true },
     ],
   },
   {
@@ -135,12 +209,43 @@ export const mockRooms: Room[] = [
     currentMeeting: null,
     hasPeople: false,
     energySaving: false,
+    building: 'A栋',
+    floor: '2F',
+    area: '2F',
     devices: [
       { id: 'd6-1', type: 'light', name: '主灯', status: 'online', value: 0, isOn: false },
       { id: 'd6-2', type: 'aircon', name: '空调', status: 'online', value: 0, isOn: false },
       { id: 'd6-3', type: 'curtain', name: '窗帘', status: 'online', value: 0, isOn: false },
       { id: 'd6-4', type: 'projector', name: '投影仪', status: 'online', value: 0, isOn: false },
       { id: 'd6-5', type: 'tv', name: '电视', status: 'online', value: 0, isOn: false },
+      { id: 'd6-6', type: 'volume', name: '音量', status: 'online', value: 0, isOn: false },
+    ],
+  },
+];
+
+export const mockBuildings: Building[] = [
+  {
+    id: 'b1',
+    name: '小米深圳大厦',
+    groups: [
+      { id: 'all', name: '全部' },
+      { id: 'A3', name: 'A3' },
+      { id: 'roof', name: '天面' },
+      { id: 'B1', name: 'B1' },
+      { id: 'B2', name: 'B2' },
+      { id: 'B3', name: 'B3' },
+      { id: 'B4', name: 'B4' },
+      { id: '1F', name: '1F' },
+      { id: '2F', name: '2F' },
+      { id: '3F', name: '3F' },
+      { id: '4F', name: '4F' },
+      { id: '5F', name: '5F' },
+      { id: '6F', name: '6F' },
+      { id: '7F', name: '7F' },
+      { id: '8F', name: '8F' },
+      { id: '9F', name: '9F' },
+      { id: '10F', name: '10F' },
+      { id: '11F', name: '11F' },
     ],
   },
 ];
@@ -165,4 +270,8 @@ export const defaultConfig: Config = {
   reminderTime: 15,
   refreshInterval: 30,
   energySavingTimeout: 10,
+  deviceRole: 'inside',
+  currentRoomId: 'r1',
 };
+
+export const mockOrders: MaterialOrder[] = [];
